@@ -1,4 +1,6 @@
-﻿Console.WriteLine("Do you want to play in small, medium or large game?");
+﻿using System.Data.Common;
+
+Console.WriteLine("Do you want to play in small, medium or large game?");
 string input = Console.ReadLine()!;
 while (input != "small" && input != "medium" && input != "large")
     input = Console.ReadLine()!;
@@ -48,14 +50,14 @@ public class FountainOfObjectsGame
     {
         ICommand? moveCommand = input switch
         {
-            "move north" => new MoveNorth(),
-            "move south" => new MoveSouth(),
-            "move west" => new MoveWest(),
-            "move east" => new MoveEast(),
-            "shoot north" => new ShootNorth(),
-            "shoot south" => new ShootSouth(),
-            "shoot west" => new ShootWest(),
-            "shoot east" => new ShootEast(),
+            "move north" => new MoveCommand(player.Row - 1, player.Column),
+            "move south" => new MoveCommand(player.Row + 1, player.Column),
+            "move west" => new MoveCommand(player.Row, player.Column - 1),
+            "move east" => new MoveCommand(player.Row, player.Column + 1),
+            "shoot north" => new ShootCommand(player.Row - 1, player.Column),
+            "shoot south" => new ShootCommand(player.Row + 1, player.Column),
+            "shoot west" => new ShootCommand(player.Row, player.Column - 1),
+            "shoot east" => new ShootCommand(player.Row + 1, player.Column),
             _ => null
         };
         if (moveCommand != null)
@@ -269,119 +271,54 @@ public class Fountain // knows if the fountain is active; has the logic to activ
         return false;
     }
 }
-public interface ICommand 
-{ 
-    public void Run(Player player, Map map); 
-    public static void ShootEnemy(Map map, int row, int column)
+public interface ICommand { public void Run(Player player, Map map); }
+public class MoveCommand : ICommand
+{
+    private readonly int _row;
+    private readonly int _column;
+    public MoveCommand(int row, int column) { _row = row; _column = column; }
+    public void Run(Player player, Map map)
     {
-        Console.ForegroundColor = ConsoleColor.Green;
-        if (map.RoomIs(RoomType.Amarock, row, column))
+        if (map.MoveValidation(_row, _column))
+            player.ChangeCoordinates(_row, _column);
+    }
+}
+public class ShootCommand : ICommand
+{
+    private readonly int _row;
+    private readonly int _column;
+    public ShootCommand(int row, int column) { _row = row; _column = column; }
+    public void Run(Player player, Map map)
+    {
+        if (player.Arrows == 0)
         {
-            map.ClearRoom(row, column);
+            Console.WriteLine("You are out of arrows.");
+            return;
+        }
+        else if (_row < map.Room.GetLength(0) && _column < map.Room.GetLength(1) && _row >= 0 && _column >= 0)
+            ShootEnemy(map);
+        else
+            Console.WriteLine("Arrow hit the wall.");
+        player.ArrowDecrement();
+    }
+    public void ShootEnemy(Map map)
+    {
+        if (map.RoomIs(RoomType.Amarock, _row, _column))
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            map.ClearRoom(_row, _column);
             Console.WriteLine("You shot down an amarock.");
+            Console.ForegroundColor = ConsoleColor.White;
         }
-        else if (map.RoomIs(RoomType.Maelstrom, row, column))
+        else if (map.RoomIs(RoomType.Maelstrom, _row, _column))
         {
-            map.ClearRoom(row, column);
+            Console.ForegroundColor = ConsoleColor.Green;
+            map.ClearRoom(_row, _column);
             Console.WriteLine("You shot down a maelstrom.");
+            Console.ForegroundColor = ConsoleColor.White;
         }
-        Console.ForegroundColor = ConsoleColor.White;
-    }
-}
-public class MoveNorth : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (map.MoveValidation(player.Row - 1, player.Column))
-            player.ChangeCoordinates(player.Row - 1, player.Column);
-    }
-}
-public class MoveSouth : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (map.MoveValidation(player.Row + 1, player.Column))
-            player.ChangeCoordinates(player.Row + 1, player.Column);
-    }
-}
-public class MoveWest : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (map.MoveValidation(player.Row, player.Column - 1))
-            player.ChangeCoordinates(player.Row, player.Column - 1);
-    }
-}
-public class MoveEast : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (map.MoveValidation(player.Row, player.Column + 1))
-            player.ChangeCoordinates(player.Row, player.Column + 1);
-    }
-}
-public class ShootNorth : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (player.Arrows == 0)
-        {
-            Console.WriteLine("You are out of arrows.");
-            return;
-        }
-        else if (player.Row - 1 > 0)
-            ICommand.ShootEnemy(map, player.Row - 1, player.Column);
         else
-            Console.WriteLine("Arrow hit the wall.");
-        player.ArrowDecrement();
-    }
-}
-public class ShootSouth : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (player.Arrows == 0)
-        {
-            Console.WriteLine("You are out of arrows.");
-            return;
-        }
-        else if (player.Row + 1 < map.Room.GetLength(0))
-            ICommand.ShootEnemy(map, player.Row + 1, player.Column);
-        else
-            Console.WriteLine("Arrow hit the wall.");
-        player.ArrowDecrement();
-    }
-}
-public class ShootWest : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (player.Arrows == 0)
-        {
-            Console.WriteLine("You are out of arrows.");
-            return;
-        }
-        else if (player.Column - 1 > 0)
-            ICommand.ShootEnemy(map, player.Row, player.Column - 1);
-        else
-            Console.WriteLine("Arrow hit the wall.");
-        player.ArrowDecrement();
-    }
-}
-public class ShootEast : ICommand
-{
-    public void Run(Player player, Map map)
-    {
-        if (player.Arrows == 0)
-        {
-            Console.WriteLine("You are out of arrows.");
-            return;
-        }
-        else if (player.Column + 1 < map.Room.GetLength(1))
-            ICommand.ShootEnemy(map, player.Row, player.Column + 1);
-        else
-            Console.WriteLine("Arrow hit the wall.");
-        player.ArrowDecrement();
+            Console.WriteLine("Arrow didn't hit anything.");
     }
 }
 public enum RoomType { Empty, Entrance, Pit, Maelstrom, Amarock, FountainOfObjects }
