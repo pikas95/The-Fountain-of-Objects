@@ -1,6 +1,4 @@
-﻿using System.Data.Common;
-
-Console.WriteLine("Do you want to play in small, medium or large game?");
+﻿Console.WriteLine("Do you want to play in small, medium or large game?");
 string input = Console.ReadLine()!;
 while (input != "small" && input != "medium" && input != "large")
     input = Console.ReadLine()!;
@@ -271,6 +269,7 @@ public class Fountain // knows if the fountain is active; has the logic to activ
         return false;
     }
 }
+// _row and _column fields below are the target coordinates
 public interface ICommand { public void Run(Player player, Map map); }
 public class MoveCommand : ICommand
 {
