@@ -300,7 +300,7 @@ public class ShootCommand : ICommand
             Console.WriteLine("Arrow hit the wall.");
         player.ArrowDecrement();
     }
-    public void ShootEnemy(Map map)
+    private void ShootEnemy(Map map)
     {
         if (map.RoomIs(RoomType.Amarock, _row, _column))
         {
