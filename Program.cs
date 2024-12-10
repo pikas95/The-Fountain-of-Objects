@@ -1,7 +1,10 @@
 ﻿Console.WriteLine("Do you want to play in small, medium or large game?");
 string input = Console.ReadLine()!;
 while (input != "small" && input != "medium" && input != "large")
+{
+    Console.WriteLine("That's not a valid option! Try again");
     input = Console.ReadLine()!;
+}
 int gameSize;
 gameSize = input switch
 {
@@ -17,6 +20,7 @@ public class FountainOfObjectsGame
 {
     Player player = new Player();
     Map map;
+    WorldEntity[] entities = [ new Maelstrom(), new Pit(), new Amarock() ];
     Fountain fountain = new Fountain();
     public FountainOfObjectsGame(int gameSize) { map = new Map(gameSize); }
     public void Run()
@@ -35,14 +39,11 @@ public class FountainOfObjectsGame
             CommandExecution(input!);
             Console.WriteLine("--------------------------------------------------------------------------------------------");
 
-            Maelstrom.Event(player, map);
-            if (Pit.Event(player, map))
-                break;
-            if (Amarock.Event(player, map))
-                break;
+            foreach (WorldEntity entity in entities)
+                if (entity.Event(player, map))
+                    return;
         }
-        if (fountain.IsActivated && player.Row == 0 && player.Column == 0)
-            PlayerWon();
+        PlayerWon();
     }
     private void CommandExecution(string input)
     {
@@ -65,7 +66,7 @@ public class FountainOfObjectsGame
             Console.ForegroundColor = ConsoleColor.Red;
             if (fountain.IsActivated)
                 Console.WriteLine("You already activated the fountain!");
-            else if (!fountain.TryActivating(map, player))
+            else if (!fountain.Event(player, map))
                 Console.WriteLine("You are not in the room where the fountain is!");
             Console.ForegroundColor = ConsoleColor.White;
         }
@@ -209,59 +210,52 @@ public static class Surroundings // describes to player what are the surrounding
         return false;
     }
 }
-public static class Maelstrom
+public class WorldEntity
 {
-    public static void Event(Player player, Map map)
+    protected string? Message { get; }
+    protected RoomType RoomType { get; }
+    public WorldEntity(RoomType roomType) { RoomType = roomType; }
+    public WorldEntity(RoomType roomType, string message) { RoomType = roomType; Message = message; }
+    public virtual bool Event(Player player, Map map)
     {
-        if (map.Room[player.Row, player.Column] == RoomType.Maelstrom)
+        if (map.RoomIs(RoomType, player.Row, player.Column))
         {
-            map.Room[Math.Clamp(player.Row + 1, 0, map.Room.GetLength(0) - 1), Math.Clamp(player.Column - 2, 0, map.Room.GetLength(1) - 1)] = RoomType.Maelstrom;
+            Console.WriteLine(player.ToString());
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(Message);
+            Console.WriteLine("You lost...");
+            Console.ForegroundColor = ConsoleColor.White;
+            return true;
+        }
+        return false;
+    }
+}
+public class Maelstrom : WorldEntity
+{
+    public Maelstrom() : base(RoomType.Maelstrom, "You were blown away by a Maelstrom.") { }
+    public override bool Event(Player player, Map map)
+    {
+        if (map.Room[player.Row, player.Column] == RoomType)
+        {
+            map.Room[Math.Clamp(player.Row + 1, 0, map.Room.GetLength(0) - 1), Math.Clamp(player.Column - 2, 0, map.Room.GetLength(1) - 1)] = RoomType;
             map.Room[player.Row, player.Column] = RoomType.Empty;
             player.ChangeCoordinates(Math.Clamp(player.Row - 1, 0, map.Room.GetLength(0) - 1), Math.Clamp(player.Column + 2, 0, map.Room.GetLength(1) - 1));
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("You were blown away by a Maelstrom.");
+            Console.WriteLine(Message);
             Console.ForegroundColor = ConsoleColor.White;
-        }
-    }
-}
-public static class Pit
-{
-    public static bool Event(Player player, Map map)
-    {
-        if (map.RoomIs(RoomType.Pit, player.Row, player.Column))
-        {
-            Console.WriteLine(player.ToString());
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("You felt into a pit.");
-            Console.WriteLine("You lost...");
-            Console.ForegroundColor = ConsoleColor.White;
-            return true;
         }
         return false;
     }
 }
-public static class Amarock
-{
-    public static bool Event(Player player, Map map)
-    {
-        if (map.RoomIs(RoomType.Amarock, player.Row, player.Column))
-        {
-            Console.WriteLine(player.ToString());
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Amarock crushed you.");
-            Console.WriteLine("You lost...");
-            Console.ForegroundColor = ConsoleColor.White;
-            return true;
-        }
-        return false;
-    }
-}
-public class Fountain // knows if the fountain is active; has the logic to activate it
+public class Pit : WorldEntity { public Pit() : base(RoomType.Pit, "You felt into a pit.") { } }
+public class Amarock : WorldEntity { public Amarock() : base(RoomType.Amarock, "Amarock crushed you.") { } }
+public class Fountain : WorldEntity
 {
     public bool IsActivated { get; private set; }
-    public bool TryActivating(Map map, Player player)
+    public Fountain() : base(RoomType.FountainOfObjects) { }
+    public override bool Event(Player player, Map map)
     {
-        if (map.RoomIs(RoomType.FountainOfObjects, player.Row, player.Column) && IsActivated == false)
+        if (map.RoomIs(RoomType, player.Row, player.Column) && IsActivated == false)
         {
             IsActivated = true;
             return true;
@@ -303,21 +297,18 @@ public class ShootCommand : ICommand
     private void ShootEnemy(Map map)
     {
         if (map.RoomIs(RoomType.Amarock, _row, _column))
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            map.ClearRoom(_row, _column);
-            Console.WriteLine("You shot down an amarock.");
-            Console.ForegroundColor = ConsoleColor.White;
-        }
+            EnemyDown("You shot down an amarock.");
         else if (map.RoomIs(RoomType.Maelstrom, _row, _column))
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            map.ClearRoom(_row, _column);
-            Console.WriteLine("You shot down a maelstrom.");
-            Console.ForegroundColor = ConsoleColor.White;
-        }
+            EnemyDown("You shot down a maelstrom.");
         else
             Console.WriteLine("Arrow didn't hit anything.");
+        void EnemyDown(string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            map.ClearRoom(_row, _column);
+            Console.WriteLine(message);
+            Console.ForegroundColor = ConsoleColor.White;
+        }
     }
 }
 public enum RoomType { Empty, Entrance, Pit, Maelstrom, Amarock, FountainOfObjects }
